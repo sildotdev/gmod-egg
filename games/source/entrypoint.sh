@@ -65,56 +65,34 @@ else
     echo -e "Not updating game server as auto update was set to 0."
 fi
 
-# Checking and pulling/cloning/updating repositories
-BRANCH=${BRANCH:-master} # Default branch if BRANCH variable is not defined
-
-# Function to clone or update a repository
-clone_or_update_repo() {
+update_repo() {
     local repo_url="$1"
     local target_folder="$HOME/$2"
-    local target_notempty="$3"
 
     if [ -z "$repo_url" ]; then
         echo "Repo URL for $target_folder is not defined. Skipping."
         return
     fi
 
-    # Using the GITHUB_TOKEN for authentication
-    if [ -n "$GITHUB_TOKEN" ]; then
-        repo_url="https://x-access-token:${GITHUB_TOKEN}@${repo_url#https://}"
-    fi
+    # Check if .git directory exists in target folder
+    if [ -d "$target_folder/.git" ]; then
+        if [ -n "$GITHUB_TOKEN" ]; then
+            repo_url="https://x-access-token:${GITHUB_TOKEN}@${repo_url#https://}"
+            git -C "$target_folder" remote set-url origin "$repo_url"
+        fi
 
-    if [ "$target_notempty" == "true" ]; then
-        if [ -d "$target_folder" ]; then
-            # Temporarily move existing files
-            mkdir -p "${target_folder}_backup"
-            mv "$target_folder"/* "${target_folder}_backup/"
-            git clone --branch "$BRANCH" "$repo_url" "$target_folder"
-            # Copy files from backup to target only if they don't exist in target
-            cp -n -r "${target_folder}_backup/"* "$target_folder/"
-            rm -r "${target_folder}_backup"
-        else
-            git clone --branch "$BRANCH" "$repo_url" "$target_folder"
-        fi
+        echo "Updating repository in $target_folder"
+        git -C "$target_folder" pull origin "$BRANCH"
+
+        git -C "$target_folder" remote remove origin
     else
-        if [ -d "$target_folder/.git" ]; then
-            echo "Updating repository in $target_folder"
-            git -C "$target_folder" pull origin "$BRANCH"
-        else
-            echo "Cloning repository from $repo_url to $target_folder"
-            git clone --branch "$BRANCH" "$repo_url" "$target_folder"
-        fi
+        echo "No repository found in $target_folder. Skipping."
     fi
 }
 
-# Delete addons folder if it's empty
-if [ -d "$HOME/garrysmod/addons" ] && [ -z "$(ls -A $HOME/garrysmod/addons)" ]; then
-    rm -r "$HOME/garrysmod/addons"
-fi
-
-# Clone or update repositories
-clone_or_update_repo "$REPO_GAMEMODE" "garrysmod/gamemodes/${FOLDER_GAMEMODE}"
-clone_or_update_repo "$REPO_BASE" "garrysmod/gamemodes/${FOLDER_BASE}"
-clone_or_update_repo "$REPO_ADDONS" "garrysmod/addons"
-clone_or_update_repo "$REPO_BIN" "garrysmod/lua/bin"
-clone_or_update_repo "$REPO_CFG" "garrysmod/cfg" "true"
+# Update repositories
+update_repo "$REPO_GAMEMODE" "garrysmod/gamemodes/${FOLDER_GAMEMODE}"
+update_repo "$REPO_BASE" "garrysmod/gamemodes/${FOLDER_BASE}"
+update_repo "$REPO_ADDONS" "garrysmod/addons"
+update_repo "$REPO_BIN" "garrysmod/lua/bin"
+update_repo "$REPO_CFG" "garrysmod/cfg"
