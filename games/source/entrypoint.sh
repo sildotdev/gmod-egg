@@ -82,13 +82,16 @@ update_repo() {
         fi
 
         echo "Updating repository in $target_folder"
-        git -C "$target_folder" pull origin "$BRANCH"
-
-        git -C "$target_folder" remote remove origin
+        if git -C "$target_folder" pull origin "$BRANCH"; then
+            git -C "$target_folder" remote remove origin
+        else
+            echo "Failed to update repository in $target_folder. Keeping origin."
+        fi
     else
         echo "No repository found in $target_folder. Skipping."
     fi
 }
+
 
 # Update repositories
 update_repo "$REPO_GAMEMODE" "garrysmod/gamemodes/${FOLDER_GAMEMODE}"
