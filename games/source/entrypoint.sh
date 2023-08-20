@@ -65,6 +65,8 @@ else
     echo -e "Not updating game server as auto update was set to 0."
 fi
 
+echo -e "Updating repositories"
+
 update_repo() {
     local repo_url="$1"
     local target_folder="$HOME/$2"
@@ -76,16 +78,17 @@ update_repo() {
 
     # Check if .git directory exists in target folder
     if [ -d "$target_folder/.git" ]; then
-        if [ -n "$GITHUB_TOKEN" ]; then
-            repo_url="https://x-access-token:${GITHUB_TOKEN}@${repo_url#https://}"
-            git -C "$target_folder" remote set-url origin "$repo_url"
-        fi
+        # if [ -n "$GITHUB_TOKEN" ]; then
+        #     repo_url="https://x-access-token:${GITHUB_TOKEN}@${repo_url#https://}"
+        #     git -C "$target_folder" remote set-url origin "$repo_url"
+        # fi
 
         echo "Updating repository in $target_folder"
         if git -C "$target_folder" pull origin "$BRANCH"; then
-            git -C "$target_folder" remote remove origin
+            echo "Successfully updated repository in $target_folder"
+            # git -C "$target_folder" remote remove origin
         else
-            echo "Failed to update repository in $target_folder. Keeping origin."
+            echo "Failed to update repository in $target_folder."
         fi
     else
         echo "No repository found in $target_folder. Skipping."
