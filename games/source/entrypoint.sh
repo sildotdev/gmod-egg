@@ -95,10 +95,16 @@ update_repo() {
     fi
 }
 
-
 # Update repositories
 update_repo "$REPO_GAMEMODE" "garrysmod/gamemodes/${FOLDER_GAMEMODE}"
 update_repo "$REPO_BASE" "garrysmod/gamemodes/${FOLDER_BASE}"
 update_repo "$REPO_ADDONS" "garrysmod/addons"
 update_repo "$REPO_BIN" "garrysmod/lua/bin"
 update_repo "$REPO_CFG" "garrysmod/cfg"
+
+
+# Display the command we're running in the output, and then execute it with the env
+# from the container itself.
+printf "\033[1m\033[33mcontainer@pterodactyl~ \033[0m%s\n" "$PARSED"
+# shellcheck disable=SC2086
+exec env ${PARSED}
