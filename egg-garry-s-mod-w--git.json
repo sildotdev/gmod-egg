@@ -1,0 +1,205 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2023-08-20T01:53:53-05:00",
+    "name": "Garry's Mod w\/ Git",
+    "author": "contact@sil.dev",
+    "description": "Garrys Mod with support for private git repositories.",
+    "features": [
+        "gsl_token",
+        "steam_disk_space"
+    ],
+    "docker_images": {
+        "ghcr.io\/palomino-roleplay\/gmod-egg:source": "ghcr.io\/palomino-roleplay\/gmod-egg:source"
+    },
+    "file_denylist": [],
+    "startup": ".\/srcds_run -game garrysmod -console -port {{SERVER_PORT}} +ip 0.0.0.0 +host_workshop_collection {{WORKSHOP_ID}} +map {{SRCDS_MAP}} +gamemode {{GAMEMODE}} -strictportbind -norestart +sv_setsteamaccount {{STEAM_ACC}} +maxplayers {{MAX_PLAYERS}}  -tickrate {{TICKRATE}}  $( [ \"$LUA_REFRESH\" == \"1\" ] || printf %s '-disableluarefresh' )",
+    "config": {
+        "files": "{}",
+        "startup": "{\r\n    \"done\": \"gameserver Steam ID\"\r\n}",
+        "logs": "{}",
+        "stop": "quit"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!\/bin\/bash\r\n# steamcmd Base Installation Script\r\n#\r\n# Server Files: \/mnt\/server\r\n\r\n## just in case someone removed the defaults.\r\nif [ \"${STEAM_USER}\" == \"\" ]; then\r\n    echo -e \"steam user is not set.\\n\"\r\n    echo -e \"Using anonymous user.\\n\"\r\n    STEAM_USER=anonymous\r\n    STEAM_PASS=\"\"\r\n    STEAM_AUTH=\"\"\r\nelse\r\n    echo -e \"user set to ${STEAM_USER}\"\r\nfi\r\n\r\n## download and install steamcmd\r\ncd \/tmp\r\nmkdir -p \/mnt\/server\/steamcmd\r\ncurl -sSL -o steamcmd.tar.gz https:\/\/steamcdn-a.akamaihd.net\/client\/installer\/steamcmd_linux.tar.gz\r\ntar -xzvf steamcmd.tar.gz -C \/mnt\/server\/steamcmd\r\nmkdir -p \/mnt\/server\/steamapps # Fix steamcmd disk write error when this folder is missing\r\ncd \/mnt\/server\/steamcmd\r\n\r\n# SteamCMD fails otherwise for some reason, even running as root.\r\n# This is changed at the end of the install process anyways.\r\nchown -R root:root \/mnt\r\nexport HOME=\/mnt\/server\r\n\r\n## install game using steamcmd\r\n.\/steamcmd.sh +force_install_dir \/mnt\/server +login ${STEAM_USER} ${STEAM_PASS} ${STEAM_AUTH} $( [[ \"${WINDOWS_INSTALL}\" == \"1\" ]] && printf %s '+@sSteamCmdForcePlatformType windows' ) +app_update ${SRCDS_APPID} ${EXTRA_FLAGS} validate +quit ## other flags may be needed depending on install. looking at you cs 1.6\r\n\r\n## set up 32 bit libraries\r\nmkdir -p \/mnt\/server\/.steam\/sdk32\r\ncp -v linux32\/steamclient.so ..\/.steam\/sdk32\/steamclient.so\r\n\r\n## set up 64 bit libraries\r\nmkdir -p \/mnt\/server\/.steam\/sdk64\r\ncp -v linux64\/steamclient.so ..\/.steam\/sdk64\/steamclient.so\r\n\r\necho -e \"Running Palomino install scripts...\"\r\necho -e \"Removing target folders...\"\r\n\r\n# Since this is a first install, remove the repo folders\r\nrm -rf \"$HOME\/garrysmod\/gamemodes\/${FOLDER_GAMEMODE}\"\r\nrm -rf \"$HOME\/garrysmod\/gamemodes\/${FOLDER_BASE}\"\r\nrm -rf \"$HOME\/garrysmod\/addons\"\r\nrm -rf \"$HOME\/garrysmod\/lua\/bin\"\r\n# rm -rf \"$HOME\/garrysmod\/cfg\"\r\n\r\n\r\n# Checking and pulling\/cloning\/updating repositories\r\nBRANCH=${BRANCH:-master} # Default branch if BRANCH variable is not defined\r\n\r\n# Function to clone or update a repository\r\nclone_or_update_repo() {\r\n    local repo_url=\"$1\"\r\n    local target_folder=\"$HOME\/$2\"\r\n    local target_notempty=\"$3\"\r\n\r\n    if [ -z \"$repo_url\" ]; then\r\n        echo \"Repo URL for $target_folder is not defined. Skipping.\"\r\n        return\r\n    fi\r\n\r\n    # Using the GITHUB_TOKEN for authentication\r\n    if [ -n \"$GITHUB_TOKEN\" ]; then\r\n        repo_url=\"https:\/\/x-access-token:${GITHUB_TOKEN}@${repo_url#https:\/\/}\"\r\n    fi\r\n\r\n    if [ \"$target_notempty\" == \"true\" ]; then\r\n        if [ -d \"$target_folder\" ]; then\r\n            # Temporarily move existing files\r\n            mkdir -p \"${target_folder}_backup\"\r\n            mv \"$target_folder\"\/* \"${target_folder}_backup\/\"\r\n            git clone --branch \"$BRANCH\" \"$repo_url\" \"$target_folder\"\r\n            # Copy files from backup to target only if they don't exist in target\r\n            cp -n -r \"${target_folder}_backup\/\"* \"$target_folder\/\"\r\n            rm -r \"${target_folder}_backup\"\r\n        else\r\n            git clone --branch \"$BRANCH\" \"$repo_url\" \"$target_folder\"\r\n        fi\r\n    else\r\n        if [ -d \"$target_folder\/.git\" ]; then\r\n            echo \"Updating repository in $target_folder\"\r\n            git -C \"$target_folder\" pull origin \"$BRANCH\"\r\n        else\r\n            echo \"Cloning repository from $1 to $target_folder\"\r\n            git clone --branch \"$BRANCH\" \"$repo_url\" \"$target_folder\"\r\n        fi\r\n    fi\r\n\r\n    # Remove the origin URL entirely\r\n    # git -C \"$target_folder\" remote remove origin\r\n}\r\n\r\n# Delete addons folder if it's empty\r\nif [ -d \"$HOME\/garrysmod\/addons\" ] && [ -z \"$(ls -A $HOME\/garrysmod\/addons)\" ]; then\r\n    rm -r \"$HOME\/garrysmod\/addons\"\r\nfi\r\n\r\n# Clone or update repositories\r\nclone_or_update_repo \"$REPO_GAMEMODE\" \"garrysmod\/gamemodes\/${FOLDER_GAMEMODE}\"\r\nclone_or_update_repo \"$REPO_BASE\" \"garrysmod\/gamemodes\/${FOLDER_BASE}\"\r\nclone_or_update_repo \"$REPO_ADDONS\" \"garrysmod\/addons\"\r\nclone_or_update_repo \"$REPO_BIN\" \"garrysmod\/lua\/bin\"\r\nclone_or_update_repo \"$REPO_CFG\" \"garrysmod\/cfg\" \"true\"",
+            "container": "ghcr.io\/pterodactyl\/installers:debian",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Map",
+            "description": "The default map for the server.",
+            "env_variable": "SRCDS_MAP",
+            "default_value": "gm_flatgrass",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|alpha_dash",
+            "field_type": "text"
+        },
+        {
+            "name": "Steam Account Token",
+            "description": "The Steam Account Token required for the server to be displayed publicly.",
+            "env_variable": "STEAM_ACC",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|alpha_num|size:32",
+            "field_type": "text"
+        },
+        {
+            "name": "Source AppID",
+            "description": "Required for game to update on server restart. Do not modify this.",
+            "env_variable": "SRCDS_APPID",
+            "default_value": "4020",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|string|max:20",
+            "field_type": "text"
+        },
+        {
+            "name": "Workshop ID",
+            "description": "The ID of your workshop collection (the numbers at the end of the URL)",
+            "env_variable": "WORKSHOP_ID",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|integer",
+            "field_type": "text"
+        },
+        {
+            "name": "Gamemode",
+            "description": "The gamemode of your server.",
+            "env_variable": "GAMEMODE",
+            "default_value": "sandbox",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Max Players",
+            "description": "The maximum amount of players allowed on your game server.",
+            "env_variable": "MAX_PLAYERS",
+            "default_value": "32",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|max:128",
+            "field_type": "text"
+        },
+        {
+            "name": "Tickrate",
+            "description": "The tickrate defines how fast the server will update each entity's location.",
+            "env_variable": "TICKRATE",
+            "default_value": "22",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|max:100",
+            "field_type": "text"
+        },
+        {
+            "name": "Lua Refresh",
+            "description": "0 = disable Lua refresh,\r\n1 = enable Lua refresh",
+            "env_variable": "LUA_REFRESH",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "GitHub Token",
+            "description": "Personal access token for GitHub repositories.",
+            "env_variable": "GITHUB_TOKEN",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Repo for Gamemode",
+            "description": "URL of the gamemode repository.",
+            "env_variable": "REPO_GAMEMODE",
+            "default_value": "https:\/\/github.com\/Palomino-Roleplay\/palominorp.git",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Repo for Base",
+            "description": "URL of the base repository.",
+            "env_variable": "REPO_BASE",
+            "default_value": "https:\/\/github.com\/Palomino-Roleplay\/phelix.git",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Repo for Addons",
+            "description": "URL of the addons repository.",
+            "env_variable": "REPO_ADDONS",
+            "default_value": "https:\/\/github.com\/Palomino-Roleplay\/addons.git",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Repo for Bin",
+            "description": "URL of the bin repository.",
+            "env_variable": "REPO_BIN",
+            "default_value": "https:\/\/github.com\/Palomino-Roleplay\/binaries.git",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Repo for Config",
+            "description": "URL of the config repository.",
+            "env_variable": "REPO_CFG",
+            "default_value": "https:\/\/github.com\/Palomino-Roleplay\/cfg.git",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Gamemode Folder",
+            "description": "Folder for the gamemode.",
+            "env_variable": "FOLDER_GAMEMODE",
+            "default_value": "palominorp",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Base Folder",
+            "description": "Folder for the base.",
+            "env_variable": "FOLDER_BASE",
+            "default_value": "phelix",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Branch",
+            "description": "Git branch to use for all repositories.",
+            "env_variable": "BRANCH",
+            "default_value": "master",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        }
+    ]
+}
