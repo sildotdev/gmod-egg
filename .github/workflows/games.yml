@@ -34,4 +34,4 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ghcr.io/palomino-roleplay/gmod-egg:${{ matrix.game }}
+            ghcr.io/sildotdev/gmod-egg:${{ matrix.game }}
