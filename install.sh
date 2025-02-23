@@ -38,7 +38,7 @@ cp -v linux32/steamclient.so ../.steam/sdk32/steamclient.so
 mkdir -p /mnt/server/.steam/sdk64
 cp -v linux64/steamclient.so ../.steam/sdk64/steamclient.so
 
-echo -e "Running Palomino install scripts..."
+echo -e "Running gmod-git-egg install scripts..."
 echo -e "Removing target folders..."
 
 # Since this is a first install, remove the repo folders
