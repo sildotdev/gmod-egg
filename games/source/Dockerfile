@@ -24,7 +24,7 @@ FROM        --platform=$TARGETOS/$TARGETARCH debian:stable-slim
 
 LABEL       author="Matthew Penner & sil.dev" maintainer="contact@sil.dev"
 
-LABEL       org.opencontainers.image.source="https://github.com/sildotdev/gmod-egg"
+LABEL       org.opencontainers.image.source="https://github.com/sildotdev/gmod-git-egg"
 LABEL       org.opencontainers.image.licenses=MIT
 
 ENV         DEBIAN_FRONTEND=noninteractive
